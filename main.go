@@ -1,9 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+
+	"golang.org/x/net/html/charset"
+	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/unicode"
+	"golang.org/x/text/transform"
 )
 
 func main() {
@@ -19,9 +26,23 @@ func main() {
 		fmt.Printf("Error status code:%d", resp.StatusCode)
 	}
 
-	content, err := ioutil.ReadAll(resp.Body)
+	bodyReader := bufio.NewReader(resp.Body)
+	e := detectEncoding(bodyReader)
+
+	utf8Reader := transform.NewReader(bodyReader, e.NewDecoder())
+	content, err := ioutil.ReadAll(utf8Reader)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Printf("%s", content)
+}
+
+func detectEncoding(r *bufio.Reader) encoding.Encoding {
+	bytes, err := r.Peek(1024)
+	if err != nil {
+		log.Printf("fetch error:%v", err)
+		return unicode.UTF8
+	}
+	e, _, _ := charset.DetermineEncoding(bytes, "")
+	return e
 }
